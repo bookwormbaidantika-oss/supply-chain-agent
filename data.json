@@ -1,0 +1,16 @@
+[
+  {
+    "product_name": "Wireless Mouse",
+    "current_stock": 15,
+    "daily_demand": 10,
+    "lead_time_days": 5,
+    "supplier": "TechCorp Logistics"
+  },
+  {
+    "product_name": "Mechanical Keyboard",
+    "current_stock": 50,
+    "daily_demand": 2,
+    "lead_time_days": 3,
+    "supplier": "KeyPro Supplies"
+  }
+]

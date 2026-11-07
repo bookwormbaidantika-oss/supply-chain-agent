@@ -1,0 +1,1744 @@
+
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SupplyChainIQ: Autonomous Supply Chain Decision Agent</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
+        @keyframes pulse-border {
+            0%, 100% { border-color: rgba(163, 230, 53, 0.4); }
+            50% { border-color: rgba(163, 230, 53, 0.9); }
+        }
+        .agent-active-ring { animation: pulse-border 2s infinite; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-lime-400 selection:text-slate-950">
+
+    <!-- Top Navigation & Global Agent Control Bar -->
+    <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 px-4 lg:px-8 py-3.5">
+        <div class="max-w-[1600px] mx-auto flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <!-- Brand Identity -->
+            <div class="flex items-center space-x-3.5">
+                <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-lime-400 to-emerald-500 text-slate-950 flex items-center justify-center font-black text-xl shadow-lg shadow-lime-400/20">
+                    <i class="fa-solid fa-cubes-stacked"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2.5">
+                        <h1 class="text-xl font-black tracking-tight text-white">
+                            SUPPLYCHAIN<span class="text-lime-400">IQ</span>
+                        </h1>
+                        <span class="text-[11px] uppercase bg-lime-400/15 text-lime-300 border border-lime-400/30 px-2.5 py-0.5 rounded-full font-bold tracking-wider">
+                            Autonomous Decision Agent v2.4
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-0.5">
+                        Inventory Telemetry • Demand Forecasting • Stockout Risk Detection • Multi-Strategy Procurement
+                    </p>
+                </div>
+            </div>
+
+            <!-- Global Controls & Quick Scenario Actions -->
+            <div class="flex flex-wrap items-center gap-2.5 w-full lg:w-auto justify-end">
+                <!-- Safety Buffer Global Config -->
+                <div class="bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-xl flex items-center gap-2 text-xs">
+                    <i class="fa-solid fa-shield-halved text-sky-400"></i>
+                    <span class="text-slate-400">Safety Stock Buffer:</span>
+                    <select id="global-safety-days" onchange="updateGlobalConfig()" class="bg-slate-900 text-white font-mono font-bold px-2 py-0.5 rounded border border-slate-700 focus:outline-none focus:border-lime-400">
+                        <option value="3">3 Days</option>
+                        <option value="5" selected>5 Days (Std)</option>
+                        <option value="7">7 Days</option>
+                        <option value="10">10 Days</option>
+                    </select>
+                </div>
+
+                <!-- Forecast Horizon Config -->
+                <div class="bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-xl flex items-center gap-2 text-xs">
+                    <i class="fa-solid fa-chart-line text-purple-400"></i>
+                    <span class="text-slate-400">Forecast Window:</span>
+                    <select id="global-forecast-days" onchange="updateGlobalConfig()" class="bg-slate-900 text-white font-mono font-bold px-2 py-0.5 rounded border border-slate-700 focus:outline-none focus:border-lime-400">
+                        <option value="7">7 Days</option>
+                        <option value="14" selected>14 Days</option>
+                        <option value="30">30 Days</option>
+                    </select>
+                </div>
+
+                <button onclick="openSimulatorModal()" class="bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/40 px-3.5 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-2">
+                    <i class="fa-solid fa-flask"></i> Custom Scenario Simulator
+                </button>
+
+                <button onclick="openAddSkuModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3.5 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-2">
+                    <i class="fa-solid fa-plus text-lime-400"></i> Add Product SKU
+                </button>
+
+                <button onclick="runAutonomousLoop()" class="bg-lime-400 hover:bg-lime-300 text-slate-950 px-4 py-2 rounded-xl text-xs font-extrabold transition shadow-lg shadow-lime-400/20 flex items-center gap-2">
+                    <i class="fa-solid fa-bolt"></i> Run Autonomous Agent Loop
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Application Content -->
+    <main class="flex-1 max-w-[1600px] w-full mx-auto px-4 lg:px-8 py-6 space-y-6">
+
+        <!-- Interactive Spec Benchmark Scenario Callout -->
+        <section class="bg-gradient-to-r from-purple-950/60 via-slate-900 to-slate-900 border border-purple-500/30 rounded-2xl p-4 lg:p-5 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 shadow-lg">
+            <div class="flex items-start gap-3.5">
+                <div class="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300 flex items-center justify-center shrink-0 mt-0.5">
+                    <i class="fa-solid fa-bullseye text-lg"></i>
+                </div>
+                <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-purple-300 bg-purple-500/20 px-2 py-0.5 rounded">Reference Benchmark Scenario</span>
+                        <span class="text-xs text-slate-400">Matches project specification problem statement</span>
+                    </div>
+                    <p class="text-xs sm:text-sm text-slate-200 mt-1">
+                        <strong>Input:</strong> Warehouse holds <span class="font-mono font-bold text-lime-300 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">15 units</span> of <span class="font-mono text-purple-300">SKU-001 (Industrial Widget)</span>, Historical Avg Daily Demand is <span class="font-mono font-bold text-lime-300 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">10 units/day</span>, Primary Supplier Lead Time is <span class="font-mono font-bold text-lime-300 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">5 days</span>.
+                        <span class="text-rose-400 font-semibold ml-1">→ Expected Lead Demand = 50 units (Shortfall: 35 units; Stockout in 1.5 days).</span>
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0 self-end lg:self-center">
+                <button onclick="inspectBenchmarkScenario()" class="bg-purple-500 hover:bg-purple-400 text-slate-950 font-bold px-3.5 py-2 rounded-xl text-xs transition flex items-center gap-1.5 shadow">
+                    <i class="fa-solid fa-magnifying-glass-chart"></i> Inspect Benchmark SKU
+                </button>
+                <button onclick="resetAllData()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-2 rounded-xl text-xs font-semibold transition" title="Reset all simulated data to defaults">
+                    <i class="fa-solid fa-rotate-left"></i> Reset Defaults
+                </button>
+            </div>
+        </section>
+
+        <!-- Top KPI Summary Row -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col justify-between">
+                <div class="flex justify-between items-start">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Monitored SKUs</span>
+                    <span class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center text-sm"><i class="fa-solid fa-boxes-stacked"></i></span>
+                </div>
+                <div class="my-2">
+                    <div class="text-2xl font-black text-white font-mono" id="kpi-sku-count">5</div>
+                </div>
+                <div class="text-[11px] text-emerald-400 flex items-center gap-1">
+                    <i class="fa-solid fa-circle-check"></i> <span id="kpi-total-units">0</span> total units in warehouse
+                </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col justify-between">
+                <div class="flex justify-between items-start">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Stockout Risk Queue</span>
+                    <span class="w-8 h-8 rounded-lg bg-rose-500/15 text-rose-400 flex items-center justify-center text-sm"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                </div>
+                <div class="my-2 flex items-baseline gap-2">
+                    <div class="text-2xl font-black text-rose-400 font-mono" id="kpi-critical-count">0</div>
+                    <span class="text-xs text-slate-400">at-risk products</span>
+                </div>
+                <div class="text-[11px] text-rose-300 flex items-center gap-1" id="kpi-shortfall-summary">
+                    0 units total lead-time shortfall
+                </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col justify-between">
+                <div class="flex justify-between items-start">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Portfolio Daily Demand</span>
+                    <span class="w-8 h-8 rounded-lg bg-purple-500/15 text-purple-400 flex items-center justify-center text-sm"><i class="fa-solid fa-chart-area"></i></span>
+                </div>
+                <div class="my-2 flex items-baseline gap-2">
+                    <div class="text-2xl font-black text-white font-mono" id="kpi-daily-demand">0</div>
+                    <span class="text-xs text-slate-400">units / day</span>
+                </div>
+                <div class="text-[11px] text-purple-300 flex items-center gap-1" id="kpi-forecast-summary">
+                    14-Day Forecast: 0 units
+                </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col justify-between">
+                <div class="flex justify-between items-start">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Strategy A: Fastest Plan</span>
+                    <span class="w-8 h-8 rounded-lg bg-sky-500/15 text-sky-400 flex items-center justify-center text-sm"><i class="fa-solid fa-truck-fast"></i></span>
+                </div>
+                <div class="my-2">
+                    <div class="text-2xl font-black text-sky-400 font-mono" id="kpi-speed-cost">$0</div>
+                </div>
+                <div class="text-[11px] text-slate-400 flex items-center justify-between">
+                    <span>Avg Lead: <strong class="text-sky-300" id="kpi-speed-days">0d</strong></span>
+                    <span class="text-[10px] bg-sky-500/10 text-sky-300 px-1.5 py-0.5 rounded">Min Stockout</span>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col justify-between">
+                <div class="flex justify-between items-start">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Strategy B: Lowest Cost</span>
+                    <span class="w-8 h-8 rounded-lg bg-lime-400/15 text-lime-400 flex items-center justify-center text-sm"><i class="fa-solid fa-piggy-bank"></i></span>
+                </div>
+                <div class="my-2">
+                    <div class="text-2xl font-black text-lime-400 font-mono" id="kpi-cost-spend">$0</div>
+                </div>
+                <div class="text-[11px] text-slate-400 flex items-center justify-between">
+                    <span>Avg Lead: <strong class="text-lime-300" id="kpi-cost-days">0d</strong></span>
+                    <span class="text-[10px] bg-lime-400/10 text-lime-300 px-1.5 py-0.5 rounded" id="kpi-savings-badge">Saves $0</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Workflow Step Navigation Tabs -->
+        <nav class="flex flex-wrap items-center justify-between gap-3 bg-slate-900 p-2 rounded-2xl border border-slate-800">
+            <div class="flex flex-wrap items-center gap-1.5">
+                <button onclick="switchTab('all')" id="tab-btn-all" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition bg-lime-400 text-slate-950 flex items-center gap-2">
+                    <i class="fa-solid fa-table-columns"></i> Unified Command Center
+                </button>
+                <button onclick="switchTab('step1')" id="tab-btn-step1" class="tab-btn px-4 py-2 rounded-xl text-xs font-semibold transition text-slate-300 hover:bg-slate-800 flex items-center gap-2">
+                    <span class="w-5 h-5 rounded-full bg-slate-800 text-lime-400 flex items-center justify-center text-[10px] font-mono font-bold">1</span> Inventory & Demand Analysis
+                </button>
+                <button onclick="switchTab('step2')" id="tab-btn-step2" class="tab-btn px-4 py-2 rounded-xl text-xs font-semibold transition text-slate-300 hover:bg-slate-800 flex items-center gap-2">
+                    <span class="w-5 h-5 rounded-full bg-slate-800 text-rose-400 flex items-center justify-center text-[10px] font-mono font-bold">2</span> Stockout Risk Detection
+                </button>
+                <button onclick="switchTab('step3')" id="tab-btn-step3" class="tab-btn px-4 py-2 rounded-xl text-xs font-semibold transition text-slate-300 hover:bg-slate-800 flex items-center gap-2">
+                    <span class="w-5 h-5 rounded-full bg-slate-800 text-purple-400 flex items-center justify-center text-[10px] font-mono font-bold">3</span> Agent Tools & Supplier Eval
+                </button>
+                <button onclick="switchTab('step4')" id="tab-btn-step4" class="tab-btn px-4 py-2 rounded-xl text-xs font-semibold transition text-slate-300 hover:bg-slate-800 flex items-center gap-2">
+                    <span class="w-5 h-5 rounded-full bg-slate-800 text-sky-400 flex items-center justify-center text-[10px] font-mono font-bold">4</span> Procurement Plan & Strategy Comparison
+                </button>
+            </div>
+
+            <!-- Active Selected SKU Indicator -->
+            <div class="flex items-center gap-2 px-3 py-1.5 bg-slate-950 rounded-xl border border-slate-800 text-xs">
+                <span class="text-slate-400">Active SKU Under Inspection:</span>
+                <select id="active-sku-selector" onchange="selectSku(this.value)" class="bg-slate-900 text-lime-400 font-mono font-bold px-2.5 py-1 rounded-lg border border-slate-700 focus:outline-none focus:border-lime-400">
+                    <!-- Populated via JS -->
+                </select>
+            </div>
+        </nav>
+
+        <!-- ===================================================================== -->
+        <!-- MODULE 1 & MODULE 2: INVENTORY/DEMAND ANALYSIS & STOCKOUT RISK QUEUE  -->
+        <!-- ===================================================================== -->
+        <div id="section-step1-2" class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+           
+            <!-- Left 7 Cols: Prioritized Stockout Risk Detection & Inventory Table (Reqs 1 & 2) -->
+            <div id="module-risk-table" class="xl:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between shadow-xl">
+                <div>
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 pb-3 border-b border-slate-800">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-rose-500/15 text-rose-400 border border-rose-500/30 rounded">Module 1 & 2</span>
+                                <h2 class="text-base font-bold text-white">Stockout Risk Priority Queue & Inventory Telemetry</h2>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-0.5">Sorted automatically by urgency (Days until stockout vs. Supplier Delivery Lead Time)</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[11px] text-slate-400">Sort by:</span>
+                            <select id="risk-sort-select" onchange="renderAll()" class="bg-slate-950 text-xs text-slate-200 border border-slate-800 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-lime-400">
+                                <option value="urgency">Stockout Urgency (Default)</option>
+                                <option value="shortfall">Highest Unit Shortfall</option>
+                                <option value="demand">Highest Daily Demand</option>
+                                <option value="sku">SKU Code</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Prioritized Risk Table -->
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-slate-800 text-[11px] font-bold uppercase text-slate-400 tracking-wider">
+                                    <th class="py-2.5 px-3">Priority / Risk</th>
+                                    <th class="py-2.5 px-3">Product SKU</th>
+                                    <th class="py-2.5 px-3 text-right">Stock</th>
+                                    <th class="py-2.5 px-3 text-right">Avg Demand</th>
+                                    <th class="py-2.5 px-3 text-right">Std Lead Time</th>
+                                    <th class="py-2.5 px-3 text-right">Lead Demand</th>
+                                    <th class="py-2.5 px-3 text-right">Shortfall</th>
+                                    <th class="py-2.5 px-3 text-center">Stockout vs Lead</th>
+                                    <th class="py-2.5 px-3 text-right">Inspect</th>
+                                </tr>
+                            </thead>
+                            <tbody id="priority-risk-tbody" class="divide-y divide-slate-800/70 text-xs">
+                                <!-- Populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Risk Classification Legend -->
+                <div class="mt-4 pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> <strong>CRITICAL:</strong> Stockout before fastest delivery</span>
+                        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> <strong>HIGH:</strong> Stock &lt; Std Lead Demand</span>
+                        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span> <strong>MEDIUM:</strong> Dips into Safety Buffer</span>
+                        <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> <strong>LOW / STABLE:</strong> Sufficient stock</span>
+                    </div>
+                    <span class="font-mono text-slate-500">Click any row to run deep agent inspection</span>
+                </div>
+            </div>
+
+            <!-- Right 5 Cols: Historical Sales & Demand Forecast Chart + Depletion Trajectory (Req 1) -->
+            <div id="module-demand-chart" class="xl:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between shadow-xl">
+                <div>
+                    <div class="flex justify-between items-start gap-2 mb-4 pb-3 border-b border-slate-800">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-purple-500/15 text-purple-300 border border-purple-500/30 rounded">Module 1 Deep-Dive</span>
+                                <h2 class="text-base font-bold text-white" id="chart-sku-title">Demand & Depletion Analytics</h2>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-0.5">7-Day Historical Sales Pattern, Forecasted Demand & Stockout Trajectory</p>
+                        </div>
+                        <button onclick="openEditSelectedSkuModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-slate-700 transition flex items-center gap-1.5 shrink-0">
+                            <i class="fa-solid fa-sliders text-lime-400"></i> Edit Stock / Sales
+                        </button>
+                    </div>
+
+                    <!-- Mini Telemetry Strip for Selected SKU -->
+                    <div class="grid grid-cols-4 gap-2.5 mb-4">
+                        <div class="bg-slate-950 border border-slate-800 p-2.5 rounded-xl">
+                            <span class="text-[10px] text-slate-400 uppercase block">7-Day Sales Sum</span>
+                            <span class="text-sm font-bold font-mono text-white" id="detail-7d-sum">70 units</span>
+                        </div>
+                        <div class="bg-slate-950 border border-slate-800 p-2.5 rounded-xl">
+                            <span class="text-[10px] text-slate-400 uppercase block">Avg Daily Demand</span>
+                            <span class="text-sm font-bold font-mono text-lime-400" id="detail-avg-demand">10.0 /day</span>
+                        </div>
+                        <div class="bg-slate-950 border border-slate-800 p-2.5 rounded-xl">
+                            <span class="text-[10px] text-slate-400 uppercase block">Days to Stockout</span>
+                            <span class="text-sm font-bold font-mono text-rose-400" id="detail-days-left">1.5 days</span>
+                        </div>
+                        <div class="bg-slate-950 border border-slate-800 p-2.5 rounded-xl">
+                            <span class="text-[10px] text-slate-400 uppercase block" id="detail-forecast-label">14d Forecast</span>
+                            <span class="text-sm font-bold font-mono text-purple-300" id="detail-forecast-val">140 units</span>
+                        </div>
+                    </div>
+
+                    <!-- SVG Visualization 1: 7-Day Historical Sales Bar Chart -->
+                    <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5 mb-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                                <i class="fa-solid fa-chart-column text-purple-400"></i> Historical 7-Day Daily Sales vs. Computed Average
+                            </span>
+                            <span class="text-[11px] font-mono text-slate-400" id="sales-trend-badge">Trend: Stable</span>
+                        </div>
+                        <div id="svg-sales-history" class="w-full h-36"></div>
+                    </div>
+
+                    <!-- SVG Visualization 2: Inventory Depletion vs Supplier Lead Time -->
+                    <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                                <i class="fa-solid fa-chart-line text-rose-400"></i> Inventory Depletion Curve vs. Supplier Arrival Window
+                            </span>
+                            <span class="text-[11px] font-mono text-rose-400" id="depletion-callout">Stockout at Day 1.5</span>
+                        </div>
+                        <div id="svg-depletion-chart" class="w-full h-40"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================================================================== -->
+        <!-- MODULE 3: AGENT TOOLS CONSOLE & SUPPLIER / REORDER EVALUATION         -->
+        <!-- ===================================================================== -->
+        <section id="section-step3" class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-5">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-3 border-b border-slate-800">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-lime-400/15 text-lime-300 border border-lime-400/30 rounded">Module 3</span>
+                        <h2 class="text-base font-bold text-white">Autonomous Agent Tools Execution Pipeline & Supplier Evaluation</h2>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-0.5">Live inspection of the 4 core agent tools executing sequentially on the selected SKU</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="animateAgentToolsExecution()" class="bg-lime-400/15 hover:bg-lime-400/25 text-lime-300 border border-lime-400/30 px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-2">
+                        <i class="fa-solid fa-play"></i> Step-Through Agent Tools Trace
+                    </button>
+                </div>
+            </div>
+
+            <!-- 4 Core Agent Tools Pipeline Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Tool 1: Inventory Lookup -->
+                <div id="tool-card-1" class="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col justify-between transition-all duration-300">
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-mono text-[11px] font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">1. inventory_lookup()</span>
+                            <i class="fa-solid fa-warehouse text-sky-400"></i>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mb-3">Queries real-time warehouse bin levels, safety stock rules, and SKU metadata.</p>
+                        <div id="tool-output-1" class="bg-slate-900/90 rounded-lg p-2.5 font-mono text-[11px] text-slate-200 space-y-1 border border-slate-800/80">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                    <div class="mt-3 pt-2 border-t border-slate-800/80 flex justify-between items-center text-[10px] text-emerald-400 font-mono">
+                        <span>STATUS: EXECUTED</span>
+                        <span>12ms</span>
+                    </div>
+                </div>
+
+                <!-- Tool 2: Sales History Analysis -->
+                <div id="tool-card-2" class="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col justify-between transition-all duration-300">
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-mono text-[11px] font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">2. sales_history_analysis()</span>
+                            <i class="fa-solid fa-chart-pie text-purple-400"></i>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mb-3">Computes daily demand velocity, variance, and lead-time consumption rate.</p>
+                        <div id="tool-output-2" class="bg-slate-900/90 rounded-lg p-2.5 font-mono text-[11px] text-slate-200 space-y-1 border border-slate-800/80">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                    <div class="mt-3 pt-2 border-t border-slate-800/80 flex justify-between items-center text-[10px] text-emerald-400 font-mono">
+                        <span>STATUS: EXECUTED</span>
+                        <span>18ms</span>
+                    </div>
+                </div>
+
+                <!-- Tool 3: Supplier Comparison -->
+                <div id="tool-card-3" class="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col justify-between transition-all duration-300">
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-mono text-[11px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">3. supplier_comparison()</span>
+                            <i class="fa-solid fa-scale-balanced text-amber-400"></i>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mb-3">Ranks approved vendors across unit cost, delivery speed (lead time), and MOQ.</p>
+                        <div id="tool-output-3" class="bg-slate-900/90 rounded-lg p-2.5 font-mono text-[11px] text-slate-200 space-y-1 border border-slate-800/80">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                    <div class="mt-3 pt-2 border-t border-slate-800/80 flex justify-between items-center text-[10px] text-emerald-400 font-mono">
+                        <span>STATUS: EXECUTED</span>
+                        <span>24ms</span>
+                    </div>
+                </div>
+
+                <!-- Tool 4: Reorder Calculation -->
+                <div id="tool-card-4" class="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col justify-between transition-all duration-300">
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-mono text-[11px] font-bold text-lime-400 bg-lime-400/10 px-2 py-0.5 rounded border border-lime-400/20">4. reorder_calculation()</span>
+                            <i class="fa-solid fa-calculator text-lime-400"></i>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mb-3">Synthesizes net shortfall + safety stock buffer to determine optimal order qty.</p>
+                        <div id="tool-output-4" class="bg-slate-900/90 rounded-lg p-2.5 font-mono text-[11px] text-slate-200 space-y-1 border border-slate-800/80">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                    <div class="mt-3 pt-2 border-t border-slate-800/80 flex justify-between items-center text-[10px] text-emerald-400 font-mono">
+                        <span>STATUS: EXECUTED</span>
+                        <span>9ms</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Multi-Supplier Evaluation Table for Selected SKU -->
+            <div class="bg-slate-950 border border-slate-800 rounded-xl p-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                        <i class="fa-solid fa-truck-ramp-box text-amber-400"></i> Approved Vendor Matrix & Lead-Time Impact Analysis (<span id="supplier-table-sku" class="text-lime-400 font-mono">SKU-001</span>)
+                    </h3>
+                    <span class="text-[11px] text-slate-400">Formula: <code class="text-lime-300 bg-slate-900 px-1.5 py-0.5 rounded">Recommended Qty = max(MOQ, LeadTimeShortfall + SafetyStockBuffer)</code></span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-[11px] text-slate-400 uppercase">
+                                <th class="py-2 px-3">Supplier Name</th>
+                                <th class="py-2 px-3">Strategic Role</th>
+                                <th class="py-2 px-3 text-right">Unit Cost</th>
+                                <th class="py-2 px-3 text-right">Delivery Lead Time</th>
+                                <th class="py-2 px-3 text-right">Expected Demand in Lead</th>
+                                <th class="py-2 px-3 text-right">Net Shortfall</th>
+                                <th class="py-2 px-3 text-right">Safety Buffer</th>
+                                <th class="py-2 px-3 text-right">Recommended Order Qty</th>
+                                <th class="py-2 px-3 text-right">Total Est. Spend</th>
+                                <th class="py-2 px-3 text-center">Stockout Window</th>
+                            </tr>
+                        </thead>
+                        <tbody id="supplier-eval-tbody" class="divide-y divide-slate-800/60">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================== -->
+        <!-- MODULE 4: PROCUREMENT PLANNING, REASONING & STRATEGY COMPARISON       -->
+        <!-- ===================================================================== -->
+        <section id="section-step4" class="space-y-6">
+           
+            <!-- Top Half: Selected SKU Side-by-Side Strategy Comparison & Explicit Reasoning -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+               
+                <!-- Left 5 Cols: Explicit Agent Reasoning & Justification Box -->
+                <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between shadow-xl">
+                    <div>
+                        <div class="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-800">
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-sky-500/15 text-sky-300 border border-sky-500/30 rounded">Module 4A</span>
+                                <h2 class="text-base font-bold text-white">Agent Decision Reasoning & Justification</h2>
+                            </div>
+                            <i class="fa-solid fa-brain text-purple-400"></i>
+                        </div>
+
+                        <div id="agent-reasoning- narrative" class="space-y-3 text-xs leading-relaxed text-slate-300">
+                            <!-- Populated dynamically with structured reasoning steps -->
+                        </div>
+                    </div>
+
+                    <div class="mt-5 pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
+                        <div class="text-[11px] text-slate-400">
+                            Active Strategy Mode: <strong id="active-strategy-label" class="text-lime-400 uppercase font-mono">Balanced / Fastest</strong>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="executeSinglePurchaseOrder()" class="bg-lime-400 hover:bg-lime-300 text-slate-950 font-extrabold px-4 py-2 rounded-xl text-xs transition flex items-center gap-1.5 shadow-lg shadow-lime-400/10">
+                                <i class="fa-solid fa-paper-plane"></i> Dispatch PO for Selected SKU
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right 7 Cols: Side-by-Side Strategy Comparison (Fastest Delivery vs Lowest Cost) -->
+                <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between shadow-xl">
+                    <div>
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 pb-3 border-b border-slate-800">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-lime-400/15 text-lime-300 border border-lime-400/30 rounded">Module 4B</span>
+                                    <h2 class="text-base font-bold text-white">Alternative Procurement Strategies Comparison</h2>
+                                </div>
+                                <p class="text-xs text-slate-400 mt-0.5">Comparing <strong class="text-sky-300">Strategy A (Fastest Delivery)</strong> vs. <strong class="text-lime-300">Strategy B (Lowest Cost)</strong> for <span id="comp-sku-label" class="font-mono text-white">SKU-001</span></p>
+                            </div>
+
+                            <!-- Strategy Toggle Buttons -->
+                            <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+                                <button onclick="setPreferredStrategy('speed')" id="btn-pref-speed" class="px-3 py-1.5 rounded-lg text-xs font-bold transition bg-sky-500 text-slate-950">
+                                    <i class="fa-solid fa-bolt mr-1"></i> Prefer Fastest
+                                </button>
+                                <button onclick="setPreferredStrategy('cost')" id="btn-pref-cost" class="px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white">
+                                    <i class="fa-solid fa-coins mr-1"></i> Prefer Lowest Cost
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Side-by-side Cards -->
+                        <div id="strategy-comparison-cards" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Trade-Off Analysis Callout Bar -->
+                    <div id="strategy-tradeoff-banner" class="mt-4 bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-xs text-slate-300 flex items-center justify-between gap-4">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Half: Master Actionable Procurement Plan Across All At-Risk SKUs -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4 pb-3 border-b border-slate-800">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="px-2 py-0.5 text-[10px] font-mono font-bold uppercase bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 rounded">Master Output Plan</span>
+                            <h2 class="text-base font-bold text-white">Actionable Portfolio-Wide Procurement Requisition Plan</h2>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-0.5">Consolidated purchase orders generated autonomously for all products requiring replenishment</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button onclick="exportProcurementPlanCSV()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3.5 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-csv text-emerald-400"></i> Export CSV
+                        </button>
+                        <button onclick="copyProcurementReport()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3.5 py-2 rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-copy text-sky-400"></i> Copy Full Executive Report
+                        </button>
+                        <button onclick="approveAllPurchaseOrders()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold px-4 py-2 rounded-xl text-xs transition flex items-center gap-1.5 shadow-lg shadow-emerald-500/10">
+                            <i class="fa-solid fa-check-double"></i> Approve & Execute All Reorders
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="border-b border-slate-800 text-[11px] font-bold uppercase text-slate-400">
+                                <th class="py-2.5 px-3">PO Ref</th>
+                                <th class="py-2.5 px-3">SKU & Product</th>
+                                <th class="py-2.5 px-3">Risk Level</th>
+                                <th class="py-2.5 px-3">Recommended Supplier</th>
+                                <th class="py-2.5 px-3 text-right">Lead Time</th>
+                                <th class="py-2.5 px-3 text-right">Order Qty</th>
+                                <th class="py-2.5 px-3 text-right">Unit Cost</th>
+                                <th class="py-2.5 px-3 text-right">Total Spend</th>
+                                <th class="py-2.5 px-3">Alternative Strategy Delta</th>
+                                <th class="py-2.5 px-3 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="master-procurement-tbody" class="divide-y divide-slate-800/70">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL 1: CUSTOM SCENARIO SIMULATOR (Interactive What-If Sandbox)      -->
+    <!-- ===================================================================== -->
+    <div id="simulator-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-5">
+            <div class="flex justify-between items-start border-b border-slate-800 pb-3">
+                <div>
+                    <span class="text-[10px] font-mono uppercase bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded font-bold">Interactive Sandbox</span>
+                    <h3 class="text-lg font-bold text-white mt-1">Custom Supply Chain Scenario Simulator</h3>
+                    <p class="text-xs text-slate-400">Test any warehouse stock, daily demand, and supplier lead-time combination.</p>
+                </div>
+                <button onclick="closeSimulatorModal()" class="text-slate-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Current Warehouse Stock</label>
+                    <input type="number" id="sim-stock" value="15" min="0" oninput="runQuickSimPreview()" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm font-mono text-white focus:border-lime-400 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Avg Daily Demand (Units)</label>
+                    <input type="number" id="sim-demand" value="10" min="1" oninput="runQuickSimPreview()" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm font-mono text-white focus:border-lime-400 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Primary Delivery Time (Days)</label>
+                    <input type="number" id="sim-lead" value="5" min="1" oninput="runQuickSimPreview()" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm font-mono text-white focus:border-lime-400 focus:outline-none">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+                    <span class="text-[11px] font-bold text-sky-400 uppercase block mb-2">Fast Supplier Option</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-[10px] text-slate-400 block">Unit Cost ($)</label>
+                            <input type="number" id="sim-fast-cost" value="45" min="1" oninput="runQuickSimPreview()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs font-mono text-white">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block">Lead Days</label>
+                            <input type="number" id="sim-fast-days" value="3" min="1" oninput="runQuickSimPreview()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs font-mono text-white">
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+                    <span class="text-[11px] font-bold text-lime-400 uppercase block mb-2">Budget Supplier Option</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-[10px] text-slate-400 block">Unit Cost ($)</label>
+                            <input type="number" id="sim-cheap-cost" value="38" min="1" oninput="runQuickSimPreview()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs font-mono text-white">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block">Lead Days</label>
+                            <input type="number" id="sim-cheap-days" value="8" min="1" oninput="runQuickSimPreview()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs font-mono text-white">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Preview Box inside Simulator -->
+            <div id="sim-live-result" class="bg-slate-950 border border-purple-500/40 rounded-xl p-4 text-xs space-y-1.5">
+                <!-- Populated by JS -->
+            </div>
+
+            <div class="flex justify-end gap-3 pt-3 border-t border-slate-800">
+                <button onclick="closeSimulatorModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl text-xs font-semibold">Close</button>
+                <button onclick="applySimulatorToBenchmark()" class="bg-lime-400 hover:bg-lime-300 text-slate-950 px-4 py-2 rounded-xl text-xs font-extrabold">Apply to Benchmark SKU-001 & Inspect</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL 2: ADD / EDIT PRODUCT SKU                                       -->
+    <!-- ===================================================================== -->
+    <div id="sku-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl">
+            <div class="flex justify-between items-start border-b border-slate-800 pb-3 mb-4">
+                <div>
+                    <h3 class="text-lg font-bold text-white" id="sku-modal-title">Add New Product SKU</h3>
+                    <p class="text-xs text-slate-400">Configure inventory, 7-day sales history, and supplier parameters.</p>
+                </div>
+                <button onclick="closeAddSkuModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <form id="sku-form" onsubmit="handleSaveSku(event)" class="space-y-4 text-xs">
+                <input type="hidden" id="form-mode" value="add">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">SKU Code</label>
+                        <input type="text" id="form-sku-code" required placeholder="e.g. SKU-006" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">Product Name</label>
+                        <input type="text" id="form-sku-name" required placeholder="e.g. Optical Limit Switch" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">Current Available Stock (Units)</label>
+                        <input type="number" id="form-sku-stock" required min="0" value="20" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">7-Day Historical Sales (comma-separated)</label>
+                        <input type="text" id="form-sku-history" required value="9, 11, 10, 10, 12, 8, 10" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 pt-2 border-t border-slate-800">
+                    <div>
+                        <label class="block font-semibold text-sky-300 mb-1">Fast Supplier Cost ($) & Lead (Days)</label>
+                        <div class="flex gap-2">
+                            <input type="number" id="form-fast-cost" required step="0.5" value="48" placeholder="Cost $" class="w-1/2 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono">
+                            <input type="number" id="form-fast-days" required min="1" value="3" placeholder="Days" class="w-1/2 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-lime-300 mb-1">Budget Supplier Cost ($) & Lead (Days)</label>
+                        <div class="flex gap-2">
+                            <input type="number" id="form-cheap-cost" required step="0.5" value="39" placeholder="Cost $" class="w-1/2 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono">
+                            <input type="number" id="form-cheap-days" required min="1" value="7" placeholder="Days" class="w-1/2 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-4 border-t border-slate-800">
+                    <button type="button" onclick="closeAddSkuModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl font-semibold">Cancel</button>
+                    <button type="submit" class="bg-lime-400 hover:bg-lime-300 text-slate-950 px-4 py-2 rounded-xl font-extrabold">Save SKU Telemetry</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-900 border border-lime-400/50 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center space-x-3 transform translate-y-28 opacity-0 transition-all duration-300 z-50 max-w-md">
+        <div class="w-8 h-8 rounded-xl bg-lime-400/20 text-lime-400 flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-circle-check"></i>
+        </div>
+        <div>
+            <h5 class="text-xs font-bold text-white" id="toast-title">Agent Action Executed</h5>
+            <p class="text-[11px] text-slate-300 mt-0.5" id="toast-msg">Telemetry updated.</p>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- CORE AUTONOMOUS SUPPLY CHAIN AGENT JAVASCRIPT ENGINE                  -->
+    <!-- ===================================================================== -->
+    <script>
+        // Default Simulated Supply Chain Dataset (Includes exact Benchmark Scenario SKU-001)
+        const DEFAULT_PRODUCTS = [
+            {
+                sku: "SKU-001",
+                name: "Industrial Widget (Spec Benchmark)",
+                category: "Core Assembly",
+                stock: 15,
+                // 7-day sales history averaging exactly 10.0 units/day
+                salesHistory: [10, 9, 11, 10, 10, 11, 9],
+                primaryLeadDays: 5,
+                suppliers: [
+                    { id: "SUP-A", name: "FastLogistics Corp", role: "Primary / Standard", unitCost: 45.00, deliveryDays: 5, reliability: 98.5, moq: 25 },
+                    { id: "SUP-B", name: "Apex Air Express", role: "Speed-Optimized", unitCost: 52.00, deliveryDays: 3, reliability: 99.6, moq: 20 },
+                    { id: "SUP-C", name: "GlobalTrade Economy", role: "Cost-Optimized", unitCost: 38.00, deliveryDays: 8, reliability: 93.0, moq: 50 }
+                ]
+            },
+            {
+                sku: "SKU-002",
+                name: "High-Frequency MCU Controller",
+                category: "Electronics",
+                stock: 12,
+                // Avg = 14 units/day
+                salesHistory: [13, 15, 14, 16, 12, 14, 14],
+                primaryLeadDays: 6,
+                suppliers: [
+                    { id: "SUP-D", name: "SiliconDirect Priority", role: "Speed-Optimized", unitCost: 118.00, deliveryDays: 4, reliability: 99.2, moq: 30 },
+                    { id: "SUP-E", name: "Pacific Wafer Works", role: "Primary / Standard", unitCost: 105.00, deliveryDays: 6, reliability: 96.8, moq: 40 },
+                    { id: "SUP-F", name: "BulkSemi Maritime", role: "Cost-Optimized", unitCost: 92.00, deliveryDays: 11, reliability: 91.5, moq: 80 }
+                ]
+            },
+            {
+                sku: "SKU-003",
+                name: "Hydraulic Servo Actuator",
+                category: "Hydraulics",
+                stock: 36,
+                // Avg = 8 units/day (36 stock vs 8*5=40 lead demand -> High risk)
+                salesHistory: [7, 8, 9, 8, 8, 7, 9],
+                primaryLeadDays: 5,
+                suppliers: [
+                    { id: "SUP-G", name: "RapidMotion Freight", role: "Speed-Optimized", unitCost: 84.00, deliveryDays: 3, reliability: 99.0, moq: 15 },
+                    { id: "SUP-H", name: "PneuMech Standard", role: "Primary / Standard", unitCost: 76.00, deliveryDays: 5, reliability: 97.2, moq: 20 },
+                    { id: "SUP-I", name: "Continental Heavy Supply", role: "Cost-Optimized", unitCost: 68.00, deliveryDays: 9, reliability: 94.0, moq: 30 }
+                ]
+            },
+            {
+                sku: "SKU-004",
+                name: "Thermal LiDAR Proximity Sensor",
+                category: "Sensors",
+                stock: 62,
+                // Avg = 9 units/day (62 stock covers 5-day lead=45, but dips into 5-day safety buffer=45 -> Medium risk)
+                salesHistory: [9, 8, 10, 9, 9, 8, 10],
+                primaryLeadDays: 5,
+                suppliers: [
+                    { id: "SUP-J", name: "OptiFast Air", role: "Speed-Optimized", unitCost: 64.00, deliveryDays: 3, reliability: 99.4, moq: 20 },
+                    { id: "SUP-K", name: "SensorTech Global", role: "Primary / Standard", unitCost: 56.00, deliveryDays: 5, reliability: 97.5, moq: 25 },
+                    { id: "SUP-L", name: "ValueOptics Ltd", role: "Cost-Optimized", unitCost: 49.00, deliveryDays: 8, reliability: 92.8, moq: 40 }
+                ]
+            },
+            {
+                sku: "SKU-005",
+                name: "Reinforced Carbon Timing Belt",
+                category: "Mechanical",
+                stock: 190,
+                // Avg = 6 units/day (190 stock >> 30 lead demand -> Low / Stable)
+                salesHistory: [6, 5, 7, 6, 6, 5, 7],
+                primaryLeadDays: 5,
+                suppliers: [
+                    { id: "SUP-M", name: "ExpressBelt Co", role: "Speed-Optimized", unitCost: 24.00, deliveryDays: 2, reliability: 99.1, moq: 50 },
+                    { id: "SUP-N", name: "PolyDrive Standard", role: "Cost-Optimized", unitCost: 19.50, deliveryDays: 5, reliability: 98.0, moq: 50 }
+                ]
+            }
+        ];
+
+        // Live Application State
+        let products = JSON.parse(JSON.stringify(DEFAULT_PRODUCTS));
+        let selectedSku = "SKU-001";
+        let preferredStrategy = "speed"; // 'speed' (Fastest Delivery) or 'cost' (Lowest Cost)
+        let safetyBufferDays = 5;
+        let forecastHorizonDays = 14;
+        let currentTab = "all";
+
+        // =========================================================================
+        // 1. AGENT ANALYTICS ENGINE (Core Mathematical & Decision Functions)
+        // =========================================================================
+        function analyzeProduct(product) {
+            const sum7d = product.salesHistory.reduce((acc, v) => acc + v, 0);
+            const avgDailyDemand = +(sum7d / product.salesHistory.length).toFixed(1);
+            const forecastDemand = Math.round(avgDailyDemand * forecastHorizonDays);
+
+            // Identify suppliers by role
+            const sortedBySpeed = [...product.suppliers].sort((a, b) => a.deliveryDays - b.deliveryDays || a.unitCost - b.unitCost);
+            const sortedByCost = [...product.suppliers].sort((a, b) => a.unitCost - b.unitCost || a.deliveryDays - b.deliveryDays);
+
+            const fastestSupplier = sortedBySpeed[0];
+            const cheapestSupplier = sortedByCost[0];
+            const stdLeadDays = product.primaryLeadDays || fastestSupplier.deliveryDays;
+
+            // Expected demand during primary supplier delivery period
+            const expectedDemandStdLead = Math.round(avgDailyDemand * stdLeadDays);
+            const daysUntilStockout = avgDailyDemand > 0 ? +(product.stock / avgDailyDemand).toFixed(1) : 999;
+            const safetyBufferUnits = Math.round(avgDailyDemand * safetyBufferDays);
+
+            // Shortfall against standard lead time
+            const stdShortfall = Math.max(0, expectedDemandStdLead - product.stock);
+
+            // Determine Risk Classification
+            let riskLevel = "LOW";
+            let riskPriority = 4; // 1 = highest urgency
+            let riskBadgeClass = "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
+
+            if (daysUntilStockout < fastestSupplier.deliveryDays) {
+                riskLevel = "CRITICAL";
+                riskPriority = 1;
+                riskBadgeClass = "bg-rose-500/20 text-rose-300 border-rose-500/40";
+            } else if (product.stock < expectedDemandStdLead) {
+                riskLevel = "HIGH";
+                riskPriority = 2;
+                riskBadgeClass = "bg-amber-500/20 text-amber-300 border-amber-500/40";
+            } else if (product.stock < (expectedDemandStdLead + safetyBufferUnits)) {
+                riskLevel = "MEDIUM";
+                riskPriority = 3;
+                riskBadgeClass = "bg-sky-500/20 text-sky-300 border-sky-500/40";
+            }
+
+            // Evaluate supplier-specific reorder calculations
+            const evaluateForSupplier = (sup) => {
+                const leadDemand = Math.round(avgDailyDemand * sup.deliveryDays);
+                const shortfall = Math.max(0, leadDemand - product.stock);
+                // Reorder target covers lead-time demand + safety buffer minus current stock
+                const netNeeded = Math.max(0, (leadDemand + safetyBufferUnits) - product.stock);
+                const recommendedQty = riskLevel === "LOW" ? 0 : Math.max(sup.moq || 0, netNeeded);
+                const totalCost = +(recommendedQty * sup.unitCost).toFixed(2);
+                const stockoutGapDays = Math.max(0, +(sup.deliveryDays - daysUntilStockout).toFixed(1));
+                const unfulfilledDemandUnits = Math.round(stockoutGapDays * avgDailyDemand);
+
+                return {
+                    supplier: sup,
+                    leadDemand,
+                    shortfall,
+                    safetyBufferUnits,
+                    recommendedQty,
+                    totalCost,
+                    stockoutGapDays,
+                    unfulfilledDemandUnits
+                };
+            };
+
+            const speedPlan = evaluateForSupplier(fastestSupplier);
+            const costPlan = evaluateForSupplier(cheapestSupplier);
+            const allSupplierPlans = product.suppliers.map(evaluateForSupplier);
+
+            return {
+                ...product,
+                sum7d,
+                avgDailyDemand,
+                forecastDemand,
+                stdLeadDays,
+                expectedDemandStdLead,
+                daysUntilStockout,
+                safetyBufferUnits,
+                stdShortfall,
+                riskLevel,
+                riskPriority,
+                riskBadgeClass,
+                fastestSupplier,
+                cheapestSupplier,
+                speedPlan,
+                costPlan,
+                allSupplierPlans,
+                activePlan: preferredStrategy === "speed" ? speedPlan : costPlan
+            };
+        }
+
+        // =========================================================================
+        // 2. RENDER PIPELINE (Updates KPIs, Tables, SVG Charts, Agent Trace & Plan)
+        // =========================================================================
+        function renderAll() {
+            const analyzedList = products.map(analyzeProduct);
+
+            // Populate Top SKU Selector
+            const selector = document.getElementById("active-sku-selector");
+            selector.innerHTML = analyzedList.map(item =>
+                `<option value="${item.sku}" ${item.sku === selectedSku ? 'selected' : ''}>${item.sku} — ${item.name} (${item.riskLevel})</option>`
+            ).join("");
+
+            // Render KPIs
+            renderKPIs(analyzedList);
+
+            // Render Module 1 & 2 Priority Risk Table
+            renderPriorityRiskTable(analyzedList);
+
+            // Find currently selected SKU analysis
+            const activeItem = analyzedList.find(i => i.sku === selectedSku) || analyzedList[0];
+            if (activeItem) {
+                renderDemandAndDepletionCharts(activeItem);
+                renderAgentToolsConsole(activeItem);
+                renderStrategyComparisonAndReasoning(activeItem);
+            }
+
+            // Render Portfolio-Wide Master Procurement Table
+            renderMasterProcurementTable(analyzedList);
+        }
+
+        function renderKPIs(analyzedList) {
+            const totalSkus = analyzedList.length;
+            const totalUnits = analyzedList.reduce((acc, i) => acc + i.stock, 0);
+            const atRiskItems = analyzedList.filter(i => i.riskLevel === "CRITICAL" || i.riskLevel === "HIGH" || i.riskLevel === "MEDIUM");
+            const totalShortfall = analyzedList.reduce((acc, i) => acc + i.stdShortfall, 0);
+            const portfolioDailyDemand = analyzedList.reduce((acc, i) => acc + i.avgDailyDemand, 0);
+            const portfolioForecast = Math.round(portfolioDailyDemand * forecastHorizonDays);
+
+            let speedTotalSpend = 0;
+            let costTotalSpend = 0;
+            let speedDaysSum = 0;
+            let costDaysSum = 0;
+            let reorderCount = 0;
+
+            atRiskItems.forEach(item => {
+                speedTotalSpend += item.speedPlan.totalCost;
+                costTotalSpend += item.costPlan.totalCost;
+                speedDaysSum += item.speedPlan.supplier.deliveryDays;
+                costDaysSum += item.costPlan.supplier.deliveryDays;
+                reorderCount++;
+            });
+
+            const avgSpeedLead = reorderCount > 0 ? (speedDaysSum / reorderCount).toFixed(1) : 0;
+            const avgCostLead = reorderCount > 0 ? (costDaysSum / reorderCount).toFixed(1) : 0;
+            const savings = Math.max(0, speedTotalSpend - costTotalSpend);
+
+            document.getElementById("kpi-sku-count").innerText = totalSkus;
+            document.getElementById("kpi-total-units").innerText = totalUnits.toLocaleString();
+            document.getElementById("kpi-critical-count").innerText = atRiskItems.length;
+            document.getElementById("kpi-shortfall-summary").innerText = `${totalShortfall} units immediate lead-time shortfall`;
+            document.getElementById("kpi-daily-demand").innerText = portfolioDailyDemand.toFixed(1);
+            document.getElementById("kpi-forecast-summary").innerText = `${forecastHorizonDays}-Day Forecast: ${portfolioForecast.toLocaleString()} units`;
+            document.getElementById("kpi-speed-cost").innerText = `$${speedTotalSpend.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`;
+            document.getElementById("kpi-speed-days").innerText = `${avgSpeedLead}d`;
+            document.getElementById("kpi-cost-spend").innerText = `$${costTotalSpend.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`;
+            document.getElementById("kpi-cost-days").innerText = `${avgCostLead}d`;
+            document.getElementById("kpi-savings-badge").innerText = `Saves $${savings.toLocaleString(undefined, {maximumFractionDigits: 0})}`;
+        }
+
+        function renderPriorityRiskTable(analyzedList) {
+            const sortMode = document.getElementById("risk-sort-select").value;
+            const sorted = [...analyzedList].sort((a, b) => {
+                if (sortMode === "urgency") {
+                    return a.riskPriority - b.riskPriority || a.daysUntilStockout - b.daysUntilStockout;
+                } else if (sortMode === "shortfall") {
+                    return b.stdShortfall - a.stdShortfall;
+                } else if (sortMode === "demand") {
+                    return b.avgDailyDemand - a.avgDailyDemand;
+                }
+                return a.sku.localeCompare(b.sku);
+            });
+
+            const tbody = document.getElementById("priority-risk-tbody");
+            tbody.innerHTML = sorted.map(item => {
+                const isSelected = item.sku === selectedSku;
+                const progressPct = Math.min(100, Math.round((item.daysUntilStockout / item.stdLeadDays) * 100));
+                const barColor = item.riskLevel === "CRITICAL" ? "bg-rose-500" : item.riskLevel === "HIGH" ? "bg-amber-500" : item.riskLevel === "MEDIUM" ? "bg-sky-400" : "bg-emerald-400";
+
+                return `
+                    <tr onclick="selectSku('${item.sku}')" class="cursor-pointer transition ${isSelected ? 'bg-slate-800/90 ring-1 ring-lime-400/50' : 'hover:bg-slate-800/40'}">
+                        <td class="py-3 px-3">
+                            <span class="px-2 py-0.5 text-[10px] font-mono font-bold rounded border ${item.riskBadgeClass}">
+                                ${item.riskLevel}
+                            </span>
+                        </td>
+                        <td class="py-3 px-3">
+                            <div class="font-bold text-white flex items-center gap-1.5">
+                                <span class="font-mono text-lime-400">${item.sku}</span>
+                                ${item.sku === 'SKU-001' ? '<span class="text-[9px] bg-purple-500/20 text-purple-300 px-1.5 py-0.2 rounded">BENCHMARK</span>' : ''}
+                            </div>
+                            <div class="text-[11px] text-slate-400 truncate max-w-[180px]">${item.name}</div>
+                        </td>
+                        <td class="py-3 px-3 text-right font-mono font-bold ${item.stock < item.expectedDemandStdLead ? 'text-rose-400' : 'text-slate-200'}">
+                            ${item.stock} u
+                        </td>
+                        <td class="py-3 px-3 text-right font-mono text-slate-300">
+                            ${item.avgDailyDemand}/d
+                        </td>
+                        <td class="py-3 px-3 text-right font-mono text-slate-300">
+                            ${item.stdLeadDays}d
+                        </td>
+                        <td class="py-3 px-3 text-right font-mono font-semibold text-white">
+                            ${item.expectedDemandStdLead} u
+                        </td>
+                        <td class="py-3 px-3 text-right font-mono font-bold ${item.stdShortfall > 0 ? 'text-rose-400' : 'text-emerald-400'}">
+                            ${item.stdShortfall > 0 ? `-${item.stdShortfall} u` : '0 u'}
+                        </td>
+                        <td class="py-3 px-3">
+                            <div class="w-28 mx-auto">
+                                <div class="flex justify-between text-[10px] font-mono mb-1">
+                                    <span class="${item.daysUntilStockout < item.stdLeadDays ? 'text-rose-400 font-bold' : 'text-slate-300'}">${item.daysUntilStockout}d stock</span>
+                                    <span class="text-slate-500">vs ${item.stdLeadDays}d</span>
+                                </div>
+                                <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden">
+                                    <div class="${barColor} h-full rounded-full" style="width: ${progressPct}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-3 px-3 text-right">
+                            <button class="px-2.5 py-1 rounded-lg text-[11px] font-semibold ${isSelected ? 'bg-lime-400 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">
+                                ${isSelected ? 'Inspecting' : 'Inspect'}
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join("");
+        }
+
+        // =========================================================================
+        // 3. INTERACTIVE SVG CHARTS (Historical Sales & Depletion Trajectory)
+        // =========================================================================
+        function renderDemandAndDepletionCharts(item) {
+            document.getElementById("chart-sku-title").innerText = `${item.sku}: ${item.name}`;
+            document.getElementById("detail-7d-sum").innerText = `${item.sum7d} units`;
+            document.getElementById("detail-avg-demand").innerText = `${item.avgDailyDemand} /day`;
+            document.getElementById("detail-days-left").innerText = `${item.daysUntilStockout} days`;
+            document.getElementById("detail-forecast-label").innerText = `${forecastHorizonDays}d Forecast`;
+            document.getElementById("detail-forecast-val").innerText = `${item.forecastDemand} units`;
+
+            // 1. Render 7-Day Historical Sales Bar Chart SVG
+            const maxSale = Math.max(...item.salesHistory, item.avgDailyDemand * 1.3, 10);
+            const barWidth = 34;
+            const gap = 18;
+            const chartHeight = 110;
+            const avgY = chartHeight - (item.avgDailyDemand / maxSale) * (chartHeight - 25);
+
+            const barsSvg = item.salesHistory.map((val, idx) => {
+                const h = Math.max(8, (val / maxSale) * (chartHeight - 25));
+                const x = 35 + idx * (barWidth + gap);
+                const y = chartHeight - h;
+                return `
+                    <g>
+                        <rect x="${x}" y="${y}" width="${barWidth}" height="${h}" rx="5" fill="#a855f7" fill-opacity="0.75" class="hover:fill-opacity-100 transition"/>
+                        <text x="${x + barWidth/2}" y="${y - 5}" text-anchor="middle" fill="#e2e8f0" font-size="10" font-family="JetBrains Mono" font-weight="bold">${val}</text>
+                        <text x="${x + barWidth/2}" y="${chartHeight + 14}" text-anchor="middle" fill="#64748b" font-size="9" font-family="JetBrains Mono">D-${7-idx}</text>
+                    </g>
+                `;
+            }).join("");
+
+            document.getElementById("svg-sales-history").innerHTML = `
+                <svg viewBox="0 0 410 132" class="w-full h-full overflow-visible">
+                    <!-- Horizontal Average Line -->
+                    <line x1="25" y1="${avgY}" x2="395" y2="${avgY}" stroke="#a3e635" stroke-width="1.5" stroke-dasharray="4 3"/>
+                    <text x="398" y="${avgY + 3}" fill="#a3e635" font-size="9" font-family="JetBrains Mono">Avg ${item.avgDailyDemand}</text>
+                    <!-- Baseline -->
+                    <line x1="25" y1="${chartHeight}" x2="395" y2="${chartHeight}" stroke="#334155" stroke-width="1"/>
+                    ${barsSvg}
+                </svg>
+            `;
+
+            // 2. Render Depletion Trajectory SVG across 10 Days
+            const horizon = 10;
+            const maxStockScale = Math.max(item.stock, item.expectedDemandStdLead, 60);
+            const w = 400;
+            const h = 115;
+            const padL = 32;
+            const padR = 20;
+            const plotW = w - padL - padR;
+
+            const xForDay = (d) => padL + (d / horizon) * plotW;
+            const yForUnits = (u) => h - (Math.max(0, u) / maxStockScale) * (h - 20);
+
+            // Generate points for stock depletion without replenishment
+            let points = [];
+            for (let d = 0; d <= horizon; d += 0.5) {
+                const rem = Math.max(0, item.stock - d * item.avgDailyDemand);
+                points.push(`${xForDay(d)},${yForUnits(rem)}`);
+            }
+
+            const stockoutDayClamped = Math.min(horizon, item.daysUntilStockout);
+            const sx = xForDay(stockoutDayClamped);
+            const fastLeadX = xForDay(Math.min(horizon, item.fastestSupplier.deliveryDays));
+            const stdLeadX = xForDay(Math.min(horizon, item.stdLeadDays));
+
+            document.getElementById("depletion-callout").innerText =
+                item.daysUntilStockout < item.stdLeadDays
+                    ? `⚠️ Stockout at Day ${item.daysUntilStockout} (Before Day ${item.stdLeadDays} Delivery)`
+                    : `✔️ Stock covers ${item.stdLeadDays}d Lead Time (${item.daysUntilStockout}d reserve)`;
+
+            document.getElementById("svg-depletion-chart").innerHTML = `
+                <svg viewBox="0 0 415 138" class="w-full h-full overflow-visible">
+                    <!-- Grid & Axes -->
+                    <line x1="${padL}" y1="${h}" x2="${w}" y2="${h}" stroke="#334155" stroke-width="1.5"/>
+                    <line x1="${padL}" y1="12" x2="${padL}" y2="${h}" stroke="#334155" stroke-width="1"/>
+
+                    <!-- Shaded Stockout Danger Zone if stockout < stdLead -->
+                    ${item.daysUntilStockout < item.stdLeadDays ? `
+                        <rect x="${sx}" y="12" width="${Math.max(0, stdLeadX - sx)}" height="${h - 12}" fill="#f43f5e" fill-opacity="0.14"/>
+                        <text x="${(sx + stdLeadX)/2}" y="26" text-anchor="middle" fill="#fda4af" font-size="8.5" font-family="JetBrains Mono" font-weight="bold">UNFULFILLED GAP</text>
+                    ` : ''}
+
+                    <!-- Fast Supplier Delivery Line -->
+                    <line x1="${fastLeadX}" y1="12" x2="${fastLeadX}" y2="${h}" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="3 3"/>
+                    <text x="${fastLeadX}" y="10" text-anchor="middle" fill="#38bdf8" font-size="8.5" font-family="JetBrains Mono">Fast (${item.fastestSupplier.deliveryDays}d)</text>
+
+                    <!-- Primary Supplier Delivery Line -->
+                    <line x1="${stdLeadX}" y1="12" x2="${stdLeadX}" y2="${h}" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4 2"/>
+                    <text x="${stdLeadX}" y="10" text-anchor="middle" fill="#fbbf24" font-size="8.5" font-family="JetBrains Mono">Std Lead (${item.stdLeadDays}d)</text>
+
+                    <!-- Depletion Polyline -->
+                    <polyline fill="none" stroke="#f43f5e" stroke-width="2.5" points="${points.join(' ')}"/>
+
+                    <!-- Starting Stock Dot -->
+                    <circle cx="${xForDay(0)}" cy="${yForUnits(item.stock)}" r="4" fill="#a3e635"/>
+                    <text x="${xForDay(0) + 6}" y="${yForUnits(item.stock) - 4}" fill="#a3e635" font-size="9" font-family="JetBrains Mono" font-weight="bold">${item.stock}u</text>
+
+                    <!-- Stockout Point Dot -->
+                    ${item.daysUntilStockout <= horizon ? `
+                        <circle cx="${sx}" cy="${h}" r="4.5" fill="#f43f5e"/>
+                        <text x="${sx}" y="${h + 13}" text-anchor="middle" fill="#f43f5e" font-size="9" font-family="JetBrains Mono" font-weight="bold">Day ${item.daysUntilStockout}</text>
+                    ` : ''}
+
+                    <!-- Day Ticks -->
+                    ${[0, 2, 4, 6, 8, 10].map(d => `
+                        <text x="${xForDay(d)}" y="${h + 24}" text-anchor="middle" fill="#64748b" font-size="8.5" font-family="JetBrains Mono">Day ${d}</text>
+                    `).join('')}
+                </svg>
+            `;
+        }
+
+        // =========================================================================
+        // 4. AGENT TOOLS CONSOLE & SUPPLIER EVALUATION MATRIX (Module 3)
+        // =========================================================================
+        function renderAgentToolsConsole(item) {
+            document.getElementById("tool-output-1").innerHTML = `
+                <div class="flex justify-between"><span class="text-slate-400">sku_id:</span> <span class="text-sky-300">"${item.sku}"</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">available_stock:</span> <span class="text-white font-bold">${item.stock} units</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">safety_policy:</span> <span>${safetyBufferDays} days (${item.safetyBufferUnits}u)</span></div>
+            `;
+
+            document.getElementById("tool-output-2").innerHTML = `
+                <div class="flex justify-between"><span class="text-slate-400">avg_daily_demand:</span> <span class="text-purple-300 font-bold">${item.avgDailyDemand} u/day</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">std_lead_demand:</span> <span class="text-white font-bold">${item.expectedDemandStdLead} units (${item.stdLeadDays}d)</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">stockout_eta:</span> <span class="${item.daysUntilStockout < item.stdLeadDays ? 'text-rose-400 font-bold' : 'text-emerald-400'}">${item.daysUntilStockout} days</span></div>
+            `;
+
+            document.getElementById("tool-output-3").innerHTML = `
+                <div class="flex justify-between"><span class="text-slate-400">fastest_vendor:</span> <span class="text-sky-300">${item.fastestSupplier.name.split(' ')[0]} (${item.fastestSupplier.deliveryDays}d @ $${item.fastestSupplier.unitCost})</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">cheapest_vendor:</span> <span class="text-lime-300">${item.cheapestSupplier.name.split(' ')[0]} (${item.cheapestSupplier.deliveryDays}d @ $${item.cheapestSupplier.unitCost})</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">options_evaluated:</span> <span>${item.suppliers.length} suppliers</span></div>
+            `;
+
+            const activePlan = item.activePlan;
+            document.getElementById("tool-output-4").innerHTML = `
+                <div class="flex justify-between"><span class="text-slate-400">lead_shortfall:</span> <span class="text-rose-400 font-bold">${activePlan.shortfall} units</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">recommended_qty:</span> <span class="text-lime-400 font-bold">${activePlan.recommendedQty} units</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">est_po_budget:</span> <span class="text-white font-bold">$${activePlan.totalCost.toLocaleString()}</span></div>
+            `;
+
+            // Render Approved Vendor Matrix Table
+            document.getElementById("supplier-table-sku").innerText = `${item.sku} (${item.name})`;
+            const tbody = document.getElementById("supplier-eval-tbody");
+            tbody.innerHTML = item.allSupplierPlans.map(plan => {
+                const s = plan.supplier;
+                const isFastest = s.id === item.fastestSupplier.id;
+                const isCheapest = s.id === item.cheapestSupplier.id;
+
+                return `
+                    <tr class="hover:bg-slate-900/80 transition">
+                        <td class="py-2.5 px-3 font-bold text-white flex items-center gap-2">
+                            ${s.name}
+                            ${isFastest ? '<span class="px-1.5 py-0.5 text-[9px] bg-sky-500/20 text-sky-300 rounded font-mono">FASTEST</span>' : ''}
+                            ${isCheapest ? '<span class="px-1.5 py-0.5 text-[9px] bg-lime-400/20 text-lime-300 rounded font-mono">LOWEST COST</span>' : ''}
+                        </td>
+                        <td class="py-2.5 px-3 text-slate-400">${s.role}</td>
+                        <td class="py-2.5 px-3 text-right font-mono text-white font-semibold">$${s.unitCost.toFixed(2)}</td>
+                        <td class="py-2.5 px-3 text-right font-mono text-slate-200">${s.deliveryDays} days</td>
+                        <td class="py-2.5 px-3 text-right font-mono text-slate-300">${plan.leadDemand} units</td>
+                        <td class="py-2.5 px-3 text-right font-mono ${plan.shortfall > 0 ? 'text-rose-400 font-bold' : 'text-emerald-400'}">${plan.shortfall} units</td>
+                        <td class="py-2.5 px-3 text-right font-mono text-slate-400">+${plan.safetyBufferUnits} units</td>
+                        <td class="py-2.5 px-3 text-right font-mono font-bold text-lime-400">${plan.recommendedQty} units</td>
+                        <td class="py-2.5 px-3 text-right font-mono font-bold text-white">$${plan.totalCost.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                        <td class="py-2.5 px-3 text-center">
+                            ${plan.stockoutGapDays > 0
+                                ? `<span class="text-[11px] font-mono text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded">${plan.stockoutGapDays}d stockout gap</span>`
+                                : `<span class="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">0d gap (Safe)</span>`
+                            }
+                        </td>
+                    </tr>
+                `;
+            }).join("");
+        }
+
+        // =========================================================================
+        // 5. MODULE 4: REASONING ENGINE & SIDE-BY-SIDE STRATEGY COMPARISON
+        // =========================================================================
+        function renderStrategyComparisonAndReasoning(item) {
+            document.getElementById("comp-sku-label").innerText = `${item.sku} (${item.name})`;
+            document.getElementById("active-strategy-label").innerText =
+                preferredStrategy === "speed" ? "Strategy A: Fastest Delivery (Risk-Mitigation)" : "Strategy B: Lowest Cost (Budget-Optimized)";
+
+            const sp = item.speedPlan;
+            const cp = item.costPlan;
+            const chosen = item.activePlan;
+
+            // Populate Step-by-Step Transparent Agent Reasoning
+            const reasoningContainer = document.getElementById("agent-reasoning- narrative");
+            reasoningContainer.innerHTML = `
+                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                    <div class="flex items-center gap-2 text-lime-400 font-bold">
+                        <i class="fa-solid fa-1"></i> <span>Inventory & Lead-Time Demand Verification</span>
+                    </div>
+                    <p class="text-slate-300">
+                        Warehouse currently holds <strong class="text-white font-mono">${item.stock} units</strong> of <strong class="text-white">${item.sku}</strong>. Historical 7-day sales average <strong class="text-white font-mono">${item.avgDailyDemand} units/day</strong>. During the standard <strong class="text-white font-mono">${item.stdLeadDays}-day</strong> delivery window, expected demand is <strong class="text-lime-300 font-mono">${item.expectedDemandStdLead} units</strong> (${item.avgDailyDemand} × ${item.stdLeadDays}).
+                    </p>
+                </div>
+
+                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                    <div class="flex items-center gap-2 text-rose-400 font-bold">
+                        <i class="fa-solid fa-2"></i> <span>Stockout Risk & Depletion Window Analysis</span>
+                    </div>
+                    <p class="text-slate-300">
+                        ${item.stock < item.expectedDemandStdLead
+                            ? `Current stock (${item.stock}u) is <strong class="text-rose-400">insufficient</strong> to cover lead-time demand (${item.expectedDemandStdLead}u), creating an immediate shortfall of <strong class="text-rose-400 font-mono">${item.stdShortfall} units</strong>. Inventory will deplete in <strong class="text-rose-400 font-mono">${item.daysUntilStockout} days</strong>.`
+                            : `Current stock (${item.stock}u) covers baseline lead-time demand (${item.expectedDemandStdLead}u) with ${item.daysUntilStockout} days of runway.`
+                        }
+                    </p>
+                </div>
+
+                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                    <div class="flex items-center gap-2 text-sky-400 font-bold">
+                        <i class="fa-solid fa-3"></i> <span>Reorder Quantity & Strategy Justification</span>
+                    </div>
+                    <p class="text-slate-300">
+                        Under <strong class="text-white">${preferredStrategy === 'speed' ? 'Fastest Delivery Strategy' : 'Lowest Cost Strategy'}</strong>, the agent selects <strong class="text-lime-300">${chosen.supplier.name}</strong> (${chosen.supplier.deliveryDays}d lead @ $${chosen.supplier.unitCost}/u).
+                        Recommended purchase quantity is <strong class="text-lime-400 font-mono">${chosen.recommendedQty} units</strong> (Lead-time shortfall of <span class="font-mono">${chosen.shortfall}u</span> + <span class="font-mono">${safetyBufferDays}-day</span> safety stock buffer of <span class="font-mono">${chosen.safetyBufferUnits}u</span>), totaling <strong class="text-white font-mono">$${chosen.totalCost.toLocaleString()}</strong>.
+                    </p>
+                </div>
+            `;
+
+            // Populate Side-by-Side Strategy Cards
+            const cardsContainer = document.getElementById("strategy-comparison-cards");
+            const isSpeedSelected = preferredStrategy === "speed";
+
+            cardsContainer.innerHTML = `
+                <!-- Strategy A: Fastest Delivery -->
+                <div onclick="setPreferredStrategy('speed')" class="cursor-pointer rounded-xl p-4 border transition relative ${isSpeedSelected ? 'bg-slate-950 border-sky-400 ring-1 ring-sky-400/40' : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'}">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <span class="text-[10px] font-mono uppercase font-bold px-2 py-0.5 rounded bg-sky-500/20 text-sky-300">Strategy A • Speed-Optimized</span>
+                            <h4 class="text-sm font-bold text-white mt-1.5">${sp.supplier.name}</h4>
+                        </div>
+                        ${isSpeedSelected ? '<span class="text-xs text-sky-400 font-bold flex items-center gap-1"><i class="fa-solid fa-circle-check"></i> Active</span>' : ''}
+                    </div>
+                    <div class="space-y-1.5 text-xs font-mono mt-3 pt-3 border-t border-slate-800/80">
+                        <div class="flex justify-between"><span class="text-slate-400">Delivery Lead Time:</span> <strong class="text-sky-300">${sp.supplier.deliveryDays} days (Fastest)</strong></div>
+                        <div class="flex justify-between"><span class="text-slate-400">Unit Procurement Cost:</span> <strong class="text-white">$${sp.supplier.unitCost.toFixed(2)}</strong></div>
+                        <div class="flex justify-between"><span class="text-slate-400">Recommended Order Qty:</span> <strong class="text-white">${sp.recommendedQty} units</strong></div>
+                        <div class="flex justify-between"><span class="text-slate-400">Total Strategy Spend:</span> <strong class="text-sky-400 text-sm">$${sp.totalCost.toLocaleString(undefined, {minimumFractionDigits: 2})}</strong></div>
+                        <div class="flex justify-between"><span class="text-slate-400">Stockout Exposure:</span> <strong class="${sp.stockoutGapDays > 0 ? 'text-amber-400' : 'text-emerald-400'}">${sp.stockoutGapDays} days (${sp.unfulfilledDemandUnits}u)</strong></div>
+                    </div>
+                </div>
+
+                <!-- Strategy B: Lowest Cost -->
+                <div onclick="setPreferredStrategy('cost')" class="cursor-pointer rounded-xl p-4 border transition relative ${!isSpeedSelected ? 'bg-slate-950 border-lime-400 ring-1 ring-lime-400/40' : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'}">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <span class="text-[10px] font-mono uppercase font-bold px-2 py-0.5 rounded bg-lime-400/20 text-lime-300">Strategy B • Cost-Optimized</span>
+                            <h4 class="text-sm font-bold text-white mt-1.5">${cp.supplier.name}</h4>
+                        </div>
+                        ${!isSpeedSelected ? '<span class="text-xs text-lime-400 font-bold flex items-center gap-1"><i class="fa-solid fa-circle-check"></i> Active</span>' : ''}
+                    </div>
+                    <div class="space-y-1.5 text-xs font-mono mt-3 pt-3 border-t border-slate-800/80">
+                        <div class="flex justify-between"><span class="text-slate-400">Delivery Lead Time:</span> <strong class="text-amber-300">${cp.supplier.deliveryDays} days (+${cp.supplier.deliveryDays - sp.supplier.deliveryDays}d slower)</strong></div>
+                        <div class="flex justify-between"><span class="text-slate-400">Unit Procurement Cost:</span> <strong class="text-lime-300">$${cp.supplier.unitCost.toFixed(2)} (Lowest)</strong></div>
+                        <div class="flex justify-between"><span class="text-slate-400">Recommended Order Qty:</span> <strong class="text-white">${cp.recommendedQty} units</strong></div>
+                        <div class="flex justify-between"><span class="text-slate-400">Total Strategy Spend:</span> <strong class="text-lime-400 text-sm">$${cp.totalCost.toLocaleString(undefined, {minimumFractionDigits: 2})}</strong></div>
+                        <div class="flex justify-between"><span class="text-slate-400">Stockout Exposure:</span> <strong class="${cp.stockoutGapDays > 0 ? 'text-rose-400' : 'text-emerald-400'}">${cp.stockoutGapDays} days (${cp.unfulfilledDemandUnits}u)</strong></div>
+                    </div>
+                </div>
+            `;
+
+            // Tradeoff summary banner
+            const unitSavings = (sp.supplier.unitCost - cp.supplier.unitCost).toFixed(2);
+            const delayDays = cp.supplier.deliveryDays - sp.supplier.deliveryDays;
+            const extraUnfulfilled = Math.max(0, cp.unfulfilledDemandUnits - sp.unfulfilledDemandUnits);
+
+            document.getElementById("strategy-tradeoff-banner").innerHTML = `
+                <div class="flex items-center gap-2.5">
+                    <i class="fa-solid fa-scale-unbalanced text-lime-400 text-base"></i>
+                    <div>
+                        <strong class="text-white">Trade-Off Verdict:</strong>
+                        Strategy A (<span class="text-sky-300">${sp.supplier.name}</span>) arrives <strong class="text-sky-300">${delayDays} days faster</strong> and prevents <strong class="text-rose-300">${extraUnfulfilled} units</strong> of stockout backlog, while Strategy B (<span class="text-lime-300">${cp.supplier.name}</span>) reduces unit cost by <strong class="text-lime-300">$${unitSavings}/unit</strong>.
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderMasterProcurementTable(analyzedList) {
+            const tbody = document.getElementById("master-procurement-tbody");
+            const actionableItems = analyzedList.filter(i => i.riskLevel !== "LOW");
+
+            if (actionableItems.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="10" class="py-8 text-center text-slate-400">
+                            <i class="fa-solid fa-circle-check text-emerald-400 text-2xl mb-2 block"></i>
+                            All monitored SKUs have sufficient stock to cover lead-time demand and safety buffers.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = actionableItems.map((item, idx) => {
+                const plan = item.activePlan;
+                const altPlan = preferredStrategy === "speed" ? item.costPlan : item.speedPlan;
+                const costDelta = plan.totalCost - altPlan.totalCost;
+                const daysDelta = plan.supplier.deliveryDays - altPlan.supplier.deliveryDays;
+
+                return `
+                    <tr class="hover:bg-slate-800/40 transition">
+                        <td class="py-3 px-3 font-mono text-slate-400">PO-2026-0${idx + 1}</td>
+                        <td class="py-3 px-3">
+                            <div class="font-bold text-white">${item.name}</div>
+                            <div class="text-[11px] font-mono text-lime-400">${item.sku} • Stock: ${item.stock}u</div>
+                        </td>
+                        <td class="py-3 px-3">
+                            <span class="px-2 py-0.5 text-[10px] font-mono font-bold rounded border ${item.riskBadgeClass}">${item.riskLevel}</span>
+                        </td>
+                        <td class="py-3 px-3">
+                            <div class="font-semibold text-white">${plan.supplier.name}</div>
+                            <div class="text-[10px] text-slate-400">${plan.supplier.role}</div>
+                        </td>
+                        <td class="py-3 px-3 text-right font-mono text-slate-200">${plan.supplier.deliveryDays} days</td>
+                        <td class="py-3 px-3 text-right font-mono font-bold text-lime-400">${plan.recommendedQty} u</td>
+                        <td class="py-3 px-3 text-right font-mono text-slate-300">$${plan.supplier.unitCost.toFixed(2)}</td>
+                        <td class="py-3 px-3 text-right font-mono font-bold text-white">$${plan.totalCost.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                        <td class="py-3 px-3 text-[11px] font-mono text-slate-400">
+                            vs ${altPlan.supplier.name.split(' ')[0]}:
+                            <span class="${daysDelta <= 0 ? 'text-sky-400' : 'text-amber-400'}">${daysDelta <= 0 ? `${daysDelta}d faster` : `+${daysDelta}d slower`}</span>
+                            (${costDelta >= 0 ? `+$${costDelta.toFixed(0)}` : `-$${Math.abs(costDelta).toFixed(0)}`})
+                        </td>
+                        <td class="py-3 px-3 text-right">
+                            <button onclick="dispatchSkuOrder('${item.sku}')" class="bg-lime-400 hover:bg-lime-300 text-slate-950 font-bold px-3 py-1.5 rounded-lg text-[11px] transition">
+                                Execute PO
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join("");
+        }
+
+        // =========================================================================
+        // 6. USER INTERACTIONS, SIMULATOR, & EXPORT HANDLERS
+        // =========================================================================
+        function selectSku(skuCode) {
+            selectedSku = skuCode;
+            renderAll();
+        }
+
+        function updateGlobalConfig() {
+            safetyBufferDays = parseInt(document.getElementById("global-safety-days").value) || 5;
+            forecastHorizonDays = parseInt(document.getElementById("global-forecast-days").value) || 14;
+            renderAll();
+            showToast("Parameters Updated", `Safety buffer set to ${safetyBufferDays} days; Forecast window set to ${forecastHorizonDays} days.`);
+        }
+
+        function setPreferredStrategy(strat) {
+            preferredStrategy = strat;
+            const speedBtn = document.getElementById("btn-pref-speed");
+            const costBtn = document.getElementById("btn-pref-cost");
+
+            if (strat === "speed") {
+                speedBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition bg-sky-500 text-slate-950";
+                costBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white";
+            } else {
+                costBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition bg-lime-400 text-slate-950";
+                speedBtn.className = "px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-400 hover:text-white";
+            }
+
+            renderAll();
+            showToast("Procurement Strategy Switched", `Active optimization mode: ${strat === 'speed' ? 'Strategy A (Fastest Delivery)' : 'Strategy B (Lowest Cost)'}.`);
+        }
+
+        function switchTab(tabId) {
+            currentTab = tabId;
+            document.querySelectorAll(".tab-btn").forEach(btn => {
+                btn.className = "tab-btn px-4 py-2 rounded-xl text-xs font-semibold transition text-slate-300 hover:bg-slate-800 flex items-center gap-2";
+            });
+            const activeBtn = document.getElementById(`tab-btn-${tabId}`);
+            if (activeBtn) {
+                activeBtn.className = "tab-btn px-4 py-2 rounded-xl text-xs font-bold transition bg-lime-400 text-slate-950 flex items-center gap-2";
+            }
+
+            const s12 = document.getElementById("section-step1-2");
+            const s3 = document.getElementById("section-step3");
+            const s4 = document.getElementById("section-step4");
+
+            s12.classList.remove("hidden");
+            s3.classList.remove("hidden");
+            s4.classList.remove("hidden");
+
+            if (tabId === "step1" || tabId === "step2") {
+                s3.classList.add("hidden");
+                s4.classList.add("hidden");
+            } else if (tabId === "step3") {
+                s12.classList.add("hidden");
+                s4.classList.add("hidden");
+            } else if (tabId === "step4") {
+                s12.classList.add("hidden");
+                s3.classList.add("hidden");
+            }
+        }
+
+        function animateAgentToolsExecution() {
+            const ids = ["tool-card-1", "tool-card-2", "tool-card-3", "tool-card-4"];
+            ids.forEach(id => document.getElementById(id).classList.remove("ring-2", "ring-lime-400"));
+
+            ids.forEach((id, idx) => {
+                setTimeout(() => {
+                    ids.forEach(other => document.getElementById(other).classList.remove("ring-2", "ring-lime-400"));
+                    document.getElementById(id).classList.add("ring-2", "ring-lime-400");
+                    if (idx === ids.length - 1) {
+                        setTimeout(() => document.getElementById(id).classList.remove("ring-2", "ring-lime-400"), 1200);
+                    }
+                }, idx * 450);
+            });
+            showToast("Agent Pipeline Executed", `Sequentially executed inventory_lookup, sales_history_analysis, supplier_comparison, and reorder_calculation on ${selectedSku}.`);
+        }
+
+        function runAutonomousLoop() {
+            switchTab('all');
+            animateAgentToolsExecution();
+            renderAll();
+        }
+
+        function inspectBenchmarkScenario() {
+            selectedSku = "SKU-001";
+            switchTab('all');
+            renderAll();
+            animateAgentToolsExecution();
+            showToast("Benchmark Loaded", "Inspecting SKU-001 (Stock: 15u, Avg Demand: 10u/day, Lead Time: 5d -> Expected Demand: 50u, Shortfall: 35u).");
+        }
+
+        function resetAllData() {
+            products = JSON.parse(JSON.stringify(DEFAULT_PRODUCTS));
+            selectedSku = "SKU-001";
+            safetyBufferDays = 5;
+            forecastHorizonDays = 14;
+            document.getElementById("global-safety-days").value = "5";
+            document.getElementById("global-forecast-days").value = "14";
+            renderAll();
+            showToast("Simulation Reset", "Restored all default SKUs and benchmark telemetry.");
+        }
+
+        function dispatchSkuOrder(skuCode) {
+            const prod = products.find(p => p.sku === skuCode);
+            if (!prod) return;
+            const analysis = analyzeProduct(prod);
+            const qty = analysis.activePlan.recommendedQty;
+            if (qty <= 0) {
+                showToast("No Order Required", `${skuCode} already has sufficient stock.`);
+                return;
+            }
+            prod.stock += qty;
+            renderAll();
+            showToast("Purchase Order Dispatched", `Ordered ${qty} units of ${skuCode} from ${analysis.activePlan.supplier.name}. Inventory replenished.`);
+        }
+
+        function executeSinglePurchaseOrder() {
+            dispatchSkuOrder(selectedSku);
+        }
+
+        function approveAllPurchaseOrders() {
+            let count = 0;
+            products.forEach(p => {
+                const a = analyzeProduct(p);
+                if (a.riskLevel !== "LOW" && a.activePlan.recommendedQty > 0) {
+                    p.stock += a.activePlan.recommendedQty;
+                    count++;
+                }
+            });
+            renderAll();
+            showToast("Portfolio Replenished", `Dispatched ${count} automated purchase orders across all at-risk SKUs.`);
+        }
+
+        // Custom Scenario Simulator Modal Logic
+        function openSimulatorModal() {
+            document.getElementById("simulator-modal").classList.remove("hidden");
+            runQuickSimPreview();
+        }
+
+        function closeSimulatorModal() {
+            document.getElementById("simulator-modal").classList.add("hidden");
+        }
+
+        function runQuickSimPreview() {
+            const stock = parseInt(document.getElementById("sim-stock").value) || 0;
+            const demand = parseInt(document.getElementById("sim-demand").value) || 1;
+            const lead = parseInt(document.getElementById("sim-lead").value) || 1;
+            const fastCost = parseFloat(document.getElementById("sim-fast-cost").value) || 45;
+            const fastDays = parseInt(document.getElementById("sim-fast-days").value) || 3;
+            const cheapCost = parseFloat(document.getElementById("sim-cheap-cost").value) || 38;
+            const cheapDays = parseInt(document.getElementById("sim-cheap-days").value) || 8;
+
+            const expectedLeadDemand = demand * lead;
+            const shortfall = Math.max(0, expectedLeadDemand - stock);
+            const safetyUnits = demand * safetyBufferDays;
+            const recommendedOrder = shortfall + safetyUnits;
+            const daysLeft = (stock / demand).toFixed(1);
+
+            document.getElementById("sim-live-result").innerHTML = `
+                <div class="font-bold text-purple-300 uppercase text-[10px]">Live Agent Simulation Output</div>
+                <div class="grid grid-cols-2 gap-2 pt-1 font-mono">
+                    <div>Expected Lead Demand: <strong class="text-white">${expectedLeadDemand} units</strong></div>
+                    <div>Stockout ETA: <strong class="${daysLeft < lead ? 'text-rose-400' : 'text-emerald-400'}">${daysLeft} days</strong></div>
+                    <div>Projected Shortfall: <strong class="text-rose-400">${shortfall} units</strong></div>
+                    <div>Recommended Qty: <strong class="text-lime-400">${recommendedOrder} units</strong></div>
+                    <div>Fast Strategy Spend: <strong class="text-sky-300">$${(recommendedOrder * fastCost).toLocaleString()} (${fastDays}d)</strong></div>
+                    <div>Budget Strategy Spend: <strong class="text-lime-300">$${(recommendedOrder * cheapCost).toLocaleString()} (${cheapDays}d)</strong></div>
+                </div>
+            `;
+        }
+
+        function applySimulatorToBenchmark() {
+            const stock = parseInt(document.getElementById("sim-stock").value) || 0;
+            const demand = parseInt(document.getElementById("sim-demand").value) || 1;
+            const lead = parseInt(document.getElementById("sim-lead").value) || 1;
+            const fastCost = parseFloat(document.getElementById("sim-fast-cost").value) || 45;
+            const fastDays = parseInt(document.getElementById("sim-fast-days").value) || 3;
+            const cheapCost = parseFloat(document.getElementById("sim-cheap-cost").value) || 38;
+            const cheapDays = parseInt(document.getElementById("sim-cheap-days").value) || 8;
+
+            const p = products.find(i => i.sku === "SKU-001");
+            if (p) {
+                p.stock = stock;
+                p.salesHistory = [demand, demand, demand, demand, demand, demand, demand];
+                p.primaryLeadDays = lead;
+                p.suppliers = [
+                    { id: "SUP-A", name: "Primary Standard Vendor", role: "Primary / Standard", unitCost: +((fastCost + cheapCost)/2).toFixed(2), deliveryDays: lead, reliability: 98.0, moq: 10 },
+                    { id: "SUP-B", name: "Apex Fast Express", role: "Speed-Optimized", unitCost: fastCost, deliveryDays: fastDays, reliability: 99.5, moq: 10 },
+                    { id: "SUP-C", name: "Global Economy Freight", role: "Cost-Optimized", unitCost: cheapCost, deliveryDays: cheapDays, reliability: 93.5, moq: 10 }
+                ];
+            }
+            selectedSku = "SKU-001";
+            closeSimulatorModal();
+            renderAll();
+            showToast("Custom Scenario Applied", `SKU-001 updated with Stock=${stock}u, Demand=${demand}u/d, Lead=${lead}d.`);
+        }
+
+        // Add / Edit SKU Modal Logic
+        function openAddSkuModal() {
+            document.getElementById("form-mode").value = "add";
+            document.getElementById("sku-modal-title").innerText = "Add New Product SKU";
+            document.getElementById("form-sku-code").value = `SKU-00${products.length + 1}`;
+            document.getElementById("form-sku-code").disabled = false;
+            document.getElementById("form-sku-name").value = "";
+            document.getElementById("form-sku-stock").value = 20;
+            document.getElementById("form-sku-history").value = "10, 12, 11, 9, 10, 11, 10";
+            document.getElementById("sku-modal").classList.remove("hidden");
+        }
+
+        function openEditSelectedSkuModal() {
+            const p = products.find(i => i.sku === selectedSku);
+            if (!p) return;
+            const a = analyzeProduct(p);
+            document.getElementById("form-mode").value = "edit";
+            document.getElementById("sku-modal-title").innerText = `Edit Telemetry: ${p.sku}`;
+            document.getElementById("form-sku-code").value = p.sku;
+            document.getElementById("form-sku-code").disabled = true;
+            document.getElementById("form-sku-name").value = p.name;
+            document.getElementById("form-sku-stock").value = p.stock;
+            document.getElementById("form-sku-history").value = p.salesHistory.join(", ");
+            document.getElementById("form-fast-cost").value = a.fastestSupplier.unitCost;
+            document.getElementById("form-fast-days").value = a.fastestSupplier.deliveryDays;
+            document.getElementById("form-cheap-cost").value = a.cheapestSupplier.unitCost;
+            document.getElementById("form-cheap-days").value = a.cheapestSupplier.deliveryDays;
+            document.getElementById("sku-modal").classList.remove("hidden");
+        }
+
+        function closeAddSkuModal() {
+            document.getElementById("sku-modal").classList.add("hidden");
+        }
+
+        function handleSaveSku(e) {
+            e.preventDefault();
+            const mode = document.getElementById("form-mode").value;
+            const code = document.getElementById("form-sku-code").value.trim();
+            const name = document.getElementById("form-sku-name").value.trim();
+            const stock = parseInt(document.getElementById("form-sku-stock").value) || 0;
+            const rawHistory = document.getElementById("form-sku-history").value.split(",").map(n => parseFloat(n.trim())).filter(n => !isNaN(n) && n >= 0);
+            const salesHistory = rawHistory.length > 0 ? rawHistory : [10, 10, 10, 10, 10, 10, 10];
+
+            const fastCost = parseFloat(document.getElementById("form-fast-cost").value) || 50;
+            const fastDays = parseInt(document.getElementById("form-fast-days").value) || 3;
+            const cheapCost = parseFloat(document.getElementById("form-cheap-cost").value) || 40;
+            const cheapDays = parseInt(document.getElementById("form-cheap-days").value) || 7;
+
+            const newSuppliers = [
+                { id: "SUP-FAST", name: "Priority Air Logistics", role: "Speed-Optimized", unitCost: fastCost, deliveryDays: fastDays, reliability: 99.1, moq: 15 },
+                { id: "SUP-CHEAP", name: "Global Maritime Supply", role: "Cost-Optimized", unitCost: cheapCost, deliveryDays: cheapDays, reliability: 94.0, moq: 25 }
+            ];
+
+            if (mode === "edit") {
+                const existing = products.find(p => p.sku === code);
+                if (existing) {
+                    existing.name = name;
+                    existing.stock = stock;
+                    existing.salesHistory = salesHistory;
+                    existing.suppliers = newSuppliers;
+                }
+            } else {
+                products.push({
+                    sku: code,
+                    name,
+                    category: "Custom",
+                    stock,
+                    salesHistory,
+                    primaryLeadDays: Math.round((fastDays + cheapDays) / 2),
+                    suppliers: newSuppliers
+                });
+            }
+
+            selectedSku = code;
+            closeAddSkuModal();
+            renderAll();
+            showToast("Telemetry Saved", `Updated inventory and demand model for ${code}.`);
+        }
+
+        // Export & Copy Utilities
+        function exportProcurementPlanCSV() {
+            const analyzed = products.map(analyzeProduct);
+            const headers = ["SKU", "Product Name", "Risk Level", "Current Stock", "Avg Daily Demand", "Selected Strategy", "Recommended Supplier", "Delivery Days", "Recommended Order Qty", "Unit Cost", "Total Cost"];
+            const rows = analyzed.map(i => [
+                i.sku,
+                `"${i.name}"`,
+                i.riskLevel,
+                i.stock,
+                i.avgDailyDemand,
+                preferredStrategy.toUpperCase(),
+                `"${i.activePlan.supplier.name}"`,
+                i.activePlan.supplier.deliveryDays,
+                i.activePlan.recommendedQty,
+                i.activePlan.supplier.unitCost,
+                i.activePlan.totalCost
+            ]);
+
+            const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `SupplyChainIQ_Procurement_Plan_${preferredStrategy}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("CSV Exported", "Downloaded portfolio procurement plan CSV.");
+        }
+
+        function copyProcurementReport() {
+            const analyzed = products.map(analyzeProduct);
+            const lines = [
+                "=== SUPPLYCHAINIQ: AUTONOMOUS PROCUREMENT DECISION REPORT ===",
+                `Active Optimization Strategy: ${preferredStrategy.toUpperCase()} | Safety Buffer: ${safetyBufferDays} Days`,
+                ""
+            ];
+            analyzed.forEach(i => {
+                lines.push(`[${i.sku}] ${i.name} | Risk: ${i.riskLevel}`);
+                lines.push(`  - Stock: ${i.stock}u | Avg Daily Demand: ${i.avgDailyDemand}u/day | Days to Stockout: ${i.daysUntilStockout}d`);
+                lines.push(`  - Recommended Order: ${i.activePlan.recommendedQty}u via ${i.activePlan.supplier.name} (${i.activePlan.supplier.deliveryDays}d @ $${i.activePlan.supplier.unitCost}/u = $${i.activePlan.totalCost})`);
+                lines.push(`  - Strategy Comparison: Fastest (${i.speedPlan.supplier.deliveryDays}d, $${i.speedPlan.totalCost}) vs Lowest Cost (${i.costPlan.supplier.deliveryDays}d, $${i.costPlan.totalCost})`);
+                lines.push("");
+            });
+
+            const ta = document.createElement("textarea");
+            ta.value = lines.join("\n");
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand("copy");
+            document.body.removeChild(ta);
+            showToast("Executive Report Copied", "Copied full autonomous procurement report to clipboard.");
+        }
+
+        function showToast(title, msg) {
+            const toast = document.getElementById("toast");
+            document.getElementById("toast-title").innerText = title;
+            document.getElementById("toast-msg").innerText = msg;
+            toast.classList.remove("translate-y-28", "opacity-0");
+            setTimeout(() => {
+                toast.classList.add("translate-y-28", "opacity-0");
+            }, 3800);
+        }
+
+        // Initialize on Window Load
+        window.onload = function() {
+            renderAll();
+        };
+    </script>
+</body>
+</html>

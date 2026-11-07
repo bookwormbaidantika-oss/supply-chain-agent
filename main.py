@@ -1,10 +1,11 @@
 import json
 import os
 from google import genai
+client=genai.Client(api_key="AQ.Ab8RN6IuPvOm9QI0bss3Y-xqpxFOIq3CyEGcR8JWbbWrvH8M9w")
 from utils import check_stockout_risk
 
 # Initialize the Gemini client (reads GEMINI_API_KEY from environment variables)
-client = genai.Client()
+client = genai.Client(api_key="AQ.Ab8RN6IuPvOm9QI0bss3Y-xqpxFOIq3CyEGcR8JWbbWrvH8M9w")
 
 def run_supply_chain_agent():
     print("===========================================")
